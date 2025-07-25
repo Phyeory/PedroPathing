@@ -1,6 +1,10 @@
 package com.pedropathing.pathgen;
 
+import com.pedropathing.localization.Pose;
+
+import java.awt.Point;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * This is the PathBuilder class. This class makes it easier to create PathChains, so you don't have
@@ -57,8 +61,21 @@ public class PathBuilder {
      * @param controlPoints This is the specified control points that define the BezierCurve.
      * @return This returns itself with the updated data.
      */
-    public PathBuilder addBezierCurve(Point... controlPoints) {
+    public PathBuilder addBezierCurve(double penaltyMultiplier, Point... controlPoints) {
+        // Note: BezierCurve doesn't use penaltyMultiplier, it's only used in OptimisedBezierCurve
         return addPath(new BezierCurve(controlPoints));
+    }
+
+    public PathBuilder addOptimisedBezierCurve(double penaltyMultiplier, Point... controlPoints) {
+        List<Point> obstaclePoints = new ArrayList<>();
+        double robotMass = 1.0; // Default value
+        return addPath(new OptimisedBezierCurve(penaltyMultiplier, obstaclePoints, robotMass, controlPoints));
+    }
+
+    public PathBuilder addOptimisedBezierCurve(double penaltyMultiplier, ArrayList<Point> controlPoints) {
+        List<Point> obstaclePoints = new ArrayList<>();
+        double robotMass = 1.0; // Default value
+        return addPath(new OptimisedBezierCurve(controlPoints, penaltyMultiplier, obstaclePoints, robotMass));
     }
 
     /**
@@ -81,6 +98,8 @@ public class PathBuilder {
     public PathBuilder addBezierLine(Point startPoint, Point endPoint) {
         return addPath(new BezierLine(startPoint, endPoint));
     }
+
+  
 
     /**
      * This sets a linear heading interpolation on the last Path added to the PathBuilder.

@@ -85,6 +85,7 @@ dependencies {
 	dokkaHtmlPlugin("org.jetbrains.dokka:kotlin-as-java-plugin:1.9.20")
 	dokkaGfmPlugin("org.jetbrains.dokka:kotlin-as-java-plugin:1.9.20")
 	implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.20")
+	implementation("org.apache.commons:commons-math3:3.6.1")
 }
 
 // CONFIGURE PUBLICATION
