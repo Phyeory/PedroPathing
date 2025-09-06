@@ -272,7 +272,7 @@ public class OptimisedBezierCurve extends BezierCurve{
 
 
 
-                    double kineticE = 0.5*robotMass*D1.dot(D1);
+                    double kineticE = 0.5*robotMass*Math.pow(D1.dot(D1), 2);
 
                     Point samplePoint = new Point((int) tempCurve.getPoint(t).x, (int) tempCurve.getPoint(t).y);
 
@@ -282,7 +282,7 @@ public class OptimisedBezierCurve extends BezierCurve{
                     double potentialE = potentialFunction(1000, 10, samplePoint);
                     
 
-                    double lagrangian =  kineticE - potentialE;
+                    double lagrangian =  kineticE + potentialE;
                     action += lagrangian*t;
                 }
                 

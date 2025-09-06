@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bezier Curve Optimizer - PedroPathing</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(0, 255, 136, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            z-index: -1;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #00ff88, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            text-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 300;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+            align-items: start;
+        }
+
+        .controls-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: 20px;
+        }
+
+        .visualization-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            min-height: 600px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #00ff88;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .input-field {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 12px 15px;
+            color: white;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #00ff88;
+            box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.1);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .input-field::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #00ff88, #00d4ff);
+            border: none;
+            border-radius: 12px;
+            padding: 12px 20px;
+            color: #000;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 255, 136, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-remove {
+            background: linear-gradient(45deg, #ff4444, #ff6666);
+            color: white;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+        }
+
+        .btn-add {
+            background: linear-gradient(45deg, #00ff88, #00d4ff);
+            color: #000;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+
+        .btn-generate {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1rem;
+            margin-top: 20px;
+        }
+
+        .point-item, .obstacle-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .plot-container {
+            width: 100%;
+            text-align: center;
+        }
+
+        .plot-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .loading {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #00ff88;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .placeholder {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 1.1rem;
+        }
+
+        .placeholder i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            color: rgba(0, 255, 136, 0.3);
+        }
+
+        .error {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid rgba(255, 68, 68, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            color: #ff6b6b;
+        }
+
+        .info-box {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .controls-panel {
+                position: static;
+            }
+            
+            .header h1 {
+                font-size: 2.5rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .input-row {
+                flex-direction: column;
+            }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(45deg, #00ff88, #00d4ff);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(45deg, #00d4ff, #00ff88);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-bezier-curve"></i> Bezier Curve Optimizer</h1>
+            <p>Lagrangian based path optimization for PP Bezier curves</p>
+        </div>
+
+        <div class="main-content">
+            <div class="controls-panel">
+                <div class="info-box">
+                    <i class="fas fa-info-circle"></i>
+                    Configure your control points and obstacles to generate an optimized Bezier curve that avoids collisions while maintaining smooth motion.
+                </div>
+
+                <div class="input-group">
+                    <h3 class="section-title">
+                        <i class="fas fa-map-pin"></i>
+                        Control Points
+                    </h3>
+                    <div id="controlPoints">
+                        <div class="point-item">
+                            <label>Start Point</label>
+                            <div class="input-row">
+                                <input type="number" class="input-field" placeholder="X" value="0" data-index="0" data-coord="x">
+                                <input type="number" class="input-field" placeholder="Y" value="-48" data-index="0" data-coord="y">
+                            </div>
+                        </div>
+                        <div class="point-item">
+                            <label>Control Point 1</label>
+                            <div class="input-row">
+                                <input type="number" class="input-field" placeholder="X" value="60" data-index="1" data-coord="x">
+                                <input type="number" class="input-field" placeholder="Y" value="-60" data-index="1" data-coord="y">
+                                <button class="btn btn-remove" onclick="removeControlPoint(1)">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="point-item">
+                            <label>End Point</label>
+                            <div class="input-row">
+                                <input type="number" class="input-field" placeholder="X" value="48" data-index="2" data-coord="x">
+                                <input type="number" class="input-field" placeholder="Y" value="0" data-index="2" data-coord="y">
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-add" onclick="addControlPoint()">
+                        <i class="fas fa-plus"></i> Add Control Point
+                    </button>
+                </div>
+
+                <div class="input-group">
+                    <h3 class="section-title">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Obstacles
+                    </h3>
+                    <div id="obstacles">
+                        <div class="obstacle-item">
+                            <label>Obstacle 1</label>
+                            <div class="input-row">
+                                <input type="number" class="input-field" placeholder="X" value="24" data-index="0" data-coord="x">
+                                <input type="number" class="input-field" placeholder="Y" value="-24" data-index="0" data-coord="y">
+                                <button class="btn btn-remove" onclick="removeObstacle(0)">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-add" onclick="addObstacle()">
+                        <i class="fas fa-plus"></i> Add Obstacle
+                    </button>
+                </div>
+
+                <button class="btn btn-generate" onclick="generateCurve()">
+                    <i class="fas fa-play"></i>
+                    Generate Optimized Curve
+                </button>
+
+                <div id="error" class="error" style="display: none;"></div>
+            </div>
+
+            <div class="visualization-panel">
+                <div class="placeholder" id="placeholder">
+                    <i class="fas fa-chart-line"></i>
+                    <p>Configure your control points and obstacles, then click "Generate" to visualize the optimized Bezier curve</p>
+                </div>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Optimizing curve... This may take a few moments</p>
+                </div>
+                
+                <div class="plot-container" id="plotContainer" style="display: none;">
+                    <img id="plotImage" src="" alt="Optimized Bezier Curve">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let controlPointCount = 3;
+        let obstacleCount = 1;
+
+        function addControlPoint() {
+            const container = document.getElementById('controlPoints');
+            const lastPoint = container.lastElementChild;
+            
+            // Create new control point before the end point
+            const newPoint = document.createElement('div');
+            newPoint.className = 'point-item';
+            newPoint.innerHTML = `
+                <label>Control Point ${controlPointCount - 1}</label>
+                <div class="input-row">
+                    <input type="number" class="input-field" placeholder="X" value="0" data-index="${controlPointCount - 1}" data-coord="x">
+                    <input type="number" class="input-field" placeholder="Y" value="0" data-index="${controlPointCount - 1}" data-coord="y">
+                    <button class="btn btn-remove" onclick="removeControlPoint(${controlPointCount - 1})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            container.insertBefore(newPoint, lastPoint);
+            controlPointCount++;
+            updateControlPointIndices();
+        }
+
+        function removeControlPoint(index) {
+            if (controlPointCount <= 3) return; // Keep at least start, one control, and end
+            
+            const container = document.getElementById('controlPoints');
+            const points = container.children;
+            
+            if (index > 0 && index < points.length - 1) {
+                container.removeChild(points[index]);
+                controlPointCount--;
+                updateControlPointIndices();
+            }
+        }
+
+        function updateControlPointIndices() {
+            const container = document.getElementById('controlPoints');
+            const points = Array.from(container.children);
+            
+            points.forEach((point, index) => {
+                const inputs = point.querySelectorAll('input');
+                inputs.forEach(input => {
+                    input.setAttribute('data-index', index);
+                });
+                
+                const label = point.querySelector('label');
+                if (index === 0) {
+                    label.textContent = 'Start Point';
+                } else if (index === points.length - 1) {
+                    label.textContent = 'End Point';
+                } else {
+                    label.textContent = `Control Point ${index}`;
+                }
+                
+                const button = point.querySelector('.btn-remove');
+                if (button) {
+                    button.setAttribute('onclick', `removeControlPoint(${index})`);
+                }
+            });
+        }
+
+        function addObstacle() {
+            const container = document.getElementById('obstacles');
+            const newObstacle = document.createElement('div');
+            newObstacle.className = 'obstacle-item';
+            newObstacle.innerHTML = `
+                <label>Obstacle ${obstacleCount + 1}</label>
+                <div class="input-row">
+                    <input type="number" class="input-field" placeholder="X" value="0" data-index="${obstacleCount}" data-coord="x">
+                    <input type="number" class="input-field" placeholder="Y" value="0" data-index="${obstacleCount}" data-coord="y">
+                    <button class="btn btn-remove" onclick="removeObstacle(${obstacleCount})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            container.appendChild(newObstacle);
+            obstacleCount++;
+        }
+
+        function removeObstacle(index) {
+            const container = document.getElementById('obstacles');
+            const obstacles = container.children;
+            
+            if (obstacles.length > 0 && index < obstacles.length) {
+                container.removeChild(obstacles[index]);
+                obstacleCount--;
+                updateObstacleIndices();
+            }
+        }
+
+        function updateObstacleIndices() {
+            const container = document.getElementById('obstacles');
+            const obstacles = Array.from(container.children);
+            
+            obstacles.forEach((obstacle, index) => {
+                const inputs = obstacle.querySelectorAll('input');
+                inputs.forEach(input => {
+                    input.setAttribute('data-index', index);
+                });
+                
+                const label = obstacle.querySelector('label');
+                label.textContent = `Obstacle ${index + 1}`;
+                
+                const button = obstacle.querySelector('.btn-remove');
+                if (button) {
+                    button.setAttribute('onclick', `removeObstacle(${index})`);
+                }
+            });
+        }
+
+        function gatherControlPoints() {
+            const container = document.getElementById('controlPoints');
+            const points = [];
+            
+            Array.from(container.children).forEach(pointDiv => {
+                const inputs = pointDiv.querySelectorAll('input');
+                const x = parseFloat(inputs[0].value) || 0;
+                const y = parseFloat(inputs[1].value) || 0;
+                points.push({x, y});
+            });
+            
+            return points;
+        }
+
+        function gatherObstacles() {
+            const container = document.getElementById('obstacles');
+            const obstacles = [];
+            
+            Array.from(container.children).forEach(obstacleDiv => {
+                const inputs = obstacleDiv.querySelectorAll('input');
+                const x = parseFloat(inputs[0].value) || 0;
+                const y = parseFloat(inputs[1].value) || 0;
+                obstacles.push({x, y});
+            });
+            
+            return obstacles;
+        }
+
+        async function generateCurve() {
+            const placeholder = document.getElementById('placeholder');
+            const loading = document.getElementById('loading');
+            const plotContainer = document.getElementById('plotContainer');
+            const errorDiv = document.getElementById('error');
+            
+            // Hide error and plot, show loading
+            errorDiv.style.display = 'none';
+            placeholder.style.display = 'none';
+            plotContainer.style.display = 'none';
+            loading.style.display = 'flex';
+            
+            try {
+                const controlPoints = gatherControlPoints();
+                const obstacles = gatherObstacles();
+                
+                if (controlPoints.length < 3) {
+                    throw new Error('At least 3 control points are required');
+                }
+                
+                const response = await fetch('/generate_curve', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        controlPoints,
+                        obstacles
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('plotImage').src = 'data:image/png;base64,' + data.plot;
+                    loading.style.display = 'none';
+                    plotContainer.style.display = 'block';
+                } else {
+                    throw new Error(data.error || 'Unknown error occurred');
+                }
+                
+            } catch (error) {
+                loading.style.display = 'none';
+                placeholder.style.display = 'block';
+                errorDiv.textContent = 'Error: ' + error.message;
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        // Initialize tooltips and smooth interactions
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add smooth scroll behavior
+            document.documentElement.style.scrollBehavior = 'smooth';
+            
+            // Add input validation
+            document.addEventListener('input', function(e) {
+                if (e.target.classList.contains('input-field')) {
+                    e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

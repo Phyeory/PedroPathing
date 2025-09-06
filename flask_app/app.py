@@ -1,8 +1,19 @@
+from flask import Flask, render_template, request, jsonify
 import numpy as np
-from scipy.optimize import minimize
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
+import base64
+import io
+import json
 from math import comb
 
+# Import our Bezier curve classes
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src', 'main'))
+
+# Copy the classes from the original file
 class Point:
     """A simple 2D point class to mimic the Point class in Java"""
     def __init__(self, x, y=None):
@@ -142,12 +153,12 @@ class OptimisedBezierCurve(BezierCurve):
         potential = 0
         for obs in self.obstacle_points:
             if isinstance(obs, Point):
-                dist = np.linalg.norm(np.array(point) - np.array(obs))
+                dist = np.linalg.norm(np.array([point.x, point.y]) - np.array([obs.x, obs.y]))
             else:
                 dist = point.distance(Point(obs))
                 
             if dist < radius:
-                potential += strength * (dist)**10
+                potential += strength ** 10
                 
         return potential
     
@@ -171,6 +182,8 @@ class OptimisedBezierCurve(BezierCurve):
     
     def cost_function(self, params):
         """Cost function for optimization"""
+        from scipy.optimize import minimize
+        
         # Reconstruct control points from parameters
         temp_points = self.array_to_control_points(params)
         temp_curve = BezierCurve(temp_points)
@@ -178,10 +191,11 @@ class OptimisedBezierCurve(BezierCurve):
         # Physical constraint penalties
         cost = 0
         shape_penalty = 0
-        N = 5000
+        N = 1000  # Reduced for web performance
         
         for i in range(N):
             t = i / (N - 1)
+            dt = 1/(N-1)
             
             # Get derivatives and curvature
             d1 = temp_curve.get_derivative(t)
@@ -189,7 +203,7 @@ class OptimisedBezierCurve(BezierCurve):
             curvature = temp_curve.get_curvature(t)
             
             # Kinetic energy term
-            kinetic_energy = d1.dot(d1)
+            kinetic_energy = (d1.dot(d1)**2)/2
             
             # Sample point for potential field
             sample_point = temp_curve.get_point(t)
@@ -198,19 +212,15 @@ class OptimisedBezierCurve(BezierCurve):
             potential_energy = self.potential_function(sample_point)
             
             # Lagrangian = T - V
-            cost += (kinetic_energy**2 - potential_energy)*t
-        
-        # Shape penalty to keep optimized curve close to original
-        for i in range(1, len(temp_points) - 1):
-            delta_x = temp_points[i].x - self.original_control_points[i].x
-            delta_y = temp_points[i].y - self.original_control_points[i].y
-            shape_penalty += delta_x**2 + delta_y**2
-        
+            cost += (kinetic_energy + potential_energy)*dt
+            
         # Combine all penalties with appropriate weights
-        return cost
+        return cost + curvature**2
     
     def optimize_bezier_curve(self):
         """Optimize the control points to minimize the cost function"""
+        from scipy.optimize import minimize
+        
         # Convert control points to flat array for optimization
         initial_params = self.control_points_to_array()
         
@@ -220,7 +230,7 @@ class OptimisedBezierCurve(BezierCurve):
                 self.cost_function,
                 initial_params,
                 method='Nelder-Mead',
-                options={'maxiter': 5000}
+                options={'maxiter': 1000}  # Reduced for web performance
             )
             
             # Update control points with optimized ones
@@ -232,78 +242,121 @@ class OptimisedBezierCurve(BezierCurve):
                 
         except Exception as e:
             print(f"Error during optimization: {e}")
-    
-    def plot(self, show_original=True):
-        """Plot the optimized curve and original curve"""
-        ts = np.linspace(0, 1, 100)
-        
-        # Get points along the optimized curve
-        optimized_points = [self.get_point(t) for t in ts]
-        optimized_x = [p.x for p in optimized_points]
-        optimized_y = [p.y for p in optimized_points]
-        
-        plt.figure(figsize=(10, 8))
-        
-        # Plot optimized curve
-        plt.plot(optimized_x, optimized_y, 'b-', linewidth=2, label='Optimized Curve')
-        
-        # Plot optimized control points
-        cp_x = [p.x for p in self.control_points]
-        cp_y = [p.y for p in self.control_points]
-        plt.plot(cp_x, cp_y, 'go-', alpha=0.5, label='Optimized Control Points')
-        
-        if show_original:
-            # Create a temporary curve with original control points
-            original_curve = BezierCurve(self.original_control_points)
-            original_points = [original_curve.get_point(t) for t in ts]
-            original_x = [p.x for p in original_points]
-            original_y = [p.y for p in original_points]
-            
-            # Plot original curve
-            plt.plot(original_x, original_y, 'r--', linewidth=1.5, label='Original Curve')
-            
-            # Plot original control points
-            orig_cp_x = [p.x for p in self.original_control_points]
-            orig_cp_y = [p.y for p in self.original_control_points]
-            plt.plot(orig_cp_x, orig_cp_y, 'ro-', alpha=0.5, label='Original Control Points')
-        
-        # Plot obstacles
-        for obs in self.obstacle_points:
-            if isinstance(obs, Point):
-                x, y = obs.x, obs.y
-            else:
-                x, y = obs[0], obs[1]
-                
-            circle = plt.Circle((x, y), 10, color='gray', alpha=0.3)
-            plt.gca().add_patch(circle)
-            plt.plot(x, y, 'ko')
-        
-        plt.axis('equal')
-        plt.grid(True)
-        plt.legend()
-        plt.title('Optimised Bezier Curve')
-        plt.xlabel('X')
-        plt.ylabel('Y')
-        plt.show()
 
-# Example usage
-if __name__ == "__main__":
-    # Define control points
-    P0 = [0, -48]
-    P1 = [60, -60]
-    P2 = [0, 30]
-    P3 = [48, 0]
-    
-    control_points = [P0, P1, P2, P3]
-    obstacles = [[24, -24], [48, -24], [58, -24], [68, -24]]
-    
+app = Flask(__name__)
+
+def generate_plot(control_points, obstacles, penalty_multiplier=1.0, robot_mass=1.0):
+    """Generate a plot and return it as a base64 encoded string"""
     # Create and optimize the curve
     curve = OptimisedBezierCurve(
         control_points=control_points,
-        penalty_multiplier=0.1,  # Lower value allows more deviation from original
+        penalty_multiplier=penalty_multiplier,
         obstacle_points=obstacles,
-        robot_mass=1.0
+        robot_mass=robot_mass
     )
     
-    # Plot the result
-    curve.plot()
+    # Generate plot
+    plt.style.use('dark_background')
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    ts = np.linspace(0, 1, 100)
+    
+    # Get points along the optimized curve
+    optimized_points = [curve.get_point(t) for t in ts]
+    optimized_x = [p.x for p in optimized_points]
+    optimized_y = [p.y for p in optimized_points]
+    
+    # Plot optimized curve
+    ax.plot(optimized_x, optimized_y, '#00ff88', linewidth=3, label='Optimized Curve', alpha=0.9)
+    
+    # Plot optimized control points
+    cp_x = [p.x for p in curve.control_points]
+    cp_y = [p.y for p in curve.control_points]
+    ax.plot(cp_x, cp_y, 'o-', color='#00ff88', alpha=0.7, markersize=8, linewidth=2, label='Optimized Control Points')
+    
+    # Create a temporary curve with original control points
+    original_curve = BezierCurve(curve.original_control_points)
+    original_points = [original_curve.get_point(t) for t in ts]
+    original_x = [p.x for p in original_points]
+    original_y = [p.y for p in original_points]
+    
+    # Plot original curve
+    ax.plot(original_x, original_y, '#ff4444', linewidth=2, linestyle='--', alpha=0.8, label='Original Curve')
+    
+    # Plot original control points
+    orig_cp_x = [p.x for p in curve.original_control_points]
+    orig_cp_y = [p.y for p in curve.original_control_points]
+    ax.plot(orig_cp_x, orig_cp_y, 'o-', color='#ff4444', alpha=0.6, markersize=6, linewidth=1.5, label='Original Control Points')
+    
+    # Plot obstacles
+    for obs in obstacles:
+        if isinstance(obs, Point):
+            x, y = obs.x, obs.y
+        else:
+            x, y = obs[0], obs[1]
+            
+        circle = plt.Circle((x, y), 10, color='#ffaa00', alpha=0.6)
+        ax.add_patch(circle)
+        ax.plot(x, y, 'o', color='#ffaa00', markersize=8)
+    
+    ax.set_aspect('equal')
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc='upper right', framealpha=0.9)
+    ax.set_title('Optimised Bezier Curve Visualization', fontsize=16, color='white', pad=20)
+    ax.set_xlabel('X Coordinate', fontsize=12, color='white')
+    ax.set_ylabel('Y Coordinate', fontsize=12, color='white')
+    
+    # Style the plot
+    ax.tick_params(colors='white')
+    fig.patch.set_facecolor('#1a1a1a')
+    ax.set_facecolor('#2d2d2d')
+    
+    # Convert plot to base64 string
+    img = io.BytesIO()
+    plt.savefig(img, format='png', bbox_inches='tight', facecolor='#1a1a1a', dpi=150)
+    img.seek(0)
+    plot_url = base64.b64encode(img.getvalue()).decode()
+    
+    plt.close(fig)  # Important: close the figure to free memory
+    
+    return plot_url
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/generate_curve', methods=['POST'])
+def generate_curve():
+    try:
+        data = request.json
+        
+        # Parse control points
+        control_points = []
+        for point in data['controlPoints']:
+            control_points.append([float(point['x']), float(point['y'])])
+        
+        # Parse obstacles
+        obstacles = []
+        for obs in data['obstacles']:
+            obstacles.append([float(obs['x']), float(obs['y'])])
+        
+        # Use default parameters
+        penalty_multiplier = 1.0
+        robot_mass = 1.0
+        
+        # Generate plot
+        plot_url = generate_plot(control_points, obstacles, penalty_multiplier, robot_mass)
+        
+        return jsonify({
+            'success': True,
+            'plot': plot_url
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5001)

@@ -147,7 +147,7 @@ class OptimisedBezierCurve(BezierCurve):
                 dist = point.distance(Point(obs))
                 
             if dist < radius:
-                potential += strength * (dist)**10
+                potential += strength **10
                 
         return potential
     
@@ -182,6 +182,7 @@ class OptimisedBezierCurve(BezierCurve):
         
         for i in range(N):
             t = i / (N - 1)
+            dt = 1/(N-1)
             
             # Get derivatives and curvature
             d1 = temp_curve.get_derivative(t)
@@ -189,7 +190,7 @@ class OptimisedBezierCurve(BezierCurve):
             curvature = temp_curve.get_curvature(t)
             
             # Kinetic energy term
-            kinetic_energy = d1.dot(d1)
+            kinetic_energy = (d1.dot(d1)**2)/2
             
             # Sample point for potential field
             sample_point = temp_curve.get_point(t)
@@ -198,16 +199,10 @@ class OptimisedBezierCurve(BezierCurve):
             potential_energy = self.potential_function(sample_point)
             
             # Lagrangian = T - V
-            cost += (kinetic_energy**2 - potential_energy)*t
-        
-        # Shape penalty to keep optimized curve close to original
-        for i in range(1, len(temp_points) - 1):
-            delta_x = temp_points[i].x - self.original_control_points[i].x
-            delta_y = temp_points[i].y - self.original_control_points[i].y
-            shape_penalty += delta_x**2 + delta_y**2
-        
+            cost += (kinetic_energy + potential_energy)*dt
+            
         # Combine all penalties with appropriate weights
-        return cost
+        return cost + curvature**2
     
     def optimize_bezier_curve(self):
         """Optimize the control points to minimize the cost function"""
@@ -291,11 +286,10 @@ if __name__ == "__main__":
     # Define control points
     P0 = [0, -48]
     P1 = [60, -60]
-    P2 = [0, 30]
     P3 = [48, 0]
     
-    control_points = [P0, P1, P2, P3]
-    obstacles = [[24, -24], [48, -24], [58, -24], [68, -24]]
+    control_points = [P0, P1, P3]
+    obstacles = [[24, -24]]
     
     # Create and optimize the curve
     curve = OptimisedBezierCurve(
