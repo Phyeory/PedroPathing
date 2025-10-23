@@ -148,7 +148,7 @@ class OptimisedBezierCurve(BezierCurve):
         # Optimize the control points
         self.optimize_bezier_curve()
     
-    def potential_function(self, point, strength=1000, radius=10):
+    def potential_function(self, point, strength=1000, radius=9):
         """Calculate potential field at a point due to obstacles"""
         potential = 0
         for obs in self.obstacle_points:
@@ -191,7 +191,7 @@ class OptimisedBezierCurve(BezierCurve):
         # Physical constraint penalties
         cost = 0
         shape_penalty = 0
-        N = 1000  # Reduced for web performance
+        N = 10000  # Reduced for web performance
         
         for i in range(N):
             t = i / (N - 1)
@@ -230,7 +230,7 @@ class OptimisedBezierCurve(BezierCurve):
                 self.cost_function,
                 initial_params,
                 method='Nelder-Mead',
-                options={'maxiter': 1000}  # Reduced for web performance
+                options={'maxiter': 10000}  # Reduced for web performance
             )
             
             # Update control points with optimized ones

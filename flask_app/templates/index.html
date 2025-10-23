@@ -385,13 +385,35 @@
                     </button>
                 </div>
 
+                <div class="input-group">
+                    <h3 class="section-title">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Entry Points
+                    </h3>
+                    <div id="entryPoints">
+                        <div class="entry-point-item">
+                            <label>Entry Point 1</label>
+                            <div class="input-row">
+                                <input type="number" class="input-field" placeholder="X" value="24" data-index="0" data-coord="x">
+                                <input type="number" class="input-field" placeholder="Y" value="-24" data-index="0" data-coord="y">
+                                <button class="btn btn-remove" onclick="removeEntryPoint(0)">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-add" onclick="addEntryPoint()">
+                        <i class="fas fa-plus"></i> Add Entry Point
+                    </button>
+                </div>
+
                 <button class="btn btn-generate" onclick="generateCurve()">
                     <i class="fas fa-play"></i>
                     Generate Optimized Curve
                 </button>
 
                 <div id="error" class="error" style="display: none;"></div>
-            </div>
+        </div>
 
             <div class="visualization-panel">
                 <div class="placeholder" id="placeholder">
@@ -507,6 +529,38 @@
             }
         }
 
+
+        function addEntryPoint() {
+            const container = document.getElementById('entryPoints');
+            const newEntryPoint = document.createElement('div');
+            newEntryPoint.className = 'entry-point-item';
+            newEntryPoint.innerHTML = `
+                <label>Entry Point ${entryPointCount + 1}</label>
+                <div class="input-row">
+                    <input type="number" class="input-field" placeholder="X" value="0" data-index="${entryPointCount}" data-coord="x">
+                    <input type="number" class="input-field" placeholder="Y" value="0" data-index="${entryPointCount}" data-coord="y">
+                    <button class="btn btn-remove" onclick="removeEntryPoint(${entryPointCount})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(newEntryPoint);
+            entryPointCount++;
+        }
+
+        function removeEntryPoint(index) {
+            const container = document.getElementById('entryPoints');
+            const entryPoints = container.children;
+
+            if (entryPoints.length > 0 && index < entryPoints.length) {
+                container.removeChild(entryPoints[index]);
+                entryPointCount--;
+                updateEntryPointIndices();
+            }
+        }
+
+
         function updateObstacleIndices() {
             const container = document.getElementById('obstacles');
             const obstacles = Array.from(container.children);
@@ -555,6 +609,20 @@
             return obstacles;
         }
 
+        function gatherEntryPoints() {
+            const container = document.getElementById('entryPoints');
+            const entryPoints = [];
+            
+            Array.from(container.children).forEach(entryPointDiv => {
+                const inputs = entryPointDiv.querySelectorAll('input');
+                const x = parseFloat(inputs[0].value)+18 || 0;
+                const y = parseFloat(inputs[1].value)+9 || 0;
+                entryPoints.push({x, y});
+            });
+            
+            return entryPoints;
+        }
+
         async function generateCurve() {
             const placeholder = document.getElementById('placeholder');
             const loading = document.getElementById('loading');
@@ -569,7 +637,7 @@
             
             try {
                 const controlPoints = gatherControlPoints();
-                const obstacles = gatherObstacles();
+                const obstacles = gatherObstacles().concat(gatherEntryPoints());
                 
                 if (controlPoints.length < 3) {
                     throw new Error('At least 3 control points are required');
