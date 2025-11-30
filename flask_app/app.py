@@ -126,12 +126,14 @@ class BezierCurve:
         return abs(cross) / denominator
 
 class OptimisedBezierCurve(BezierCurve):
-    def __init__(self, control_points, penalty_multiplier=1.0, obstacle_points=None, robot_mass=1.0):
+    def __init__(self, control_points, penalty_multiplier=1.0, obstacle_points=None, robot_mass=1.0, cp=None):
         super().__init__(control_points)
         
         self.penalty_multiplier = penalty_multiplier
         self.obstacle_points = [] if obstacle_points is None else obstacle_points
         self.robot_mass = robot_mass
+        self.cp = cp
+
         
         # Store original control points for shape penalty calculation
         if isinstance(control_points[0], Point):
@@ -142,7 +144,7 @@ class OptimisedBezierCurve(BezierCurve):
 
         self.optimize_bezier_curve()
     
-    def potential_function(self, point, strength=1000, radius=9):
+    def potential_function(self, point, strength=1000, radius=10):
         potential = 0
         for obs in self.obstacle_points:
             if isinstance(obs, Point):
@@ -158,18 +160,42 @@ class OptimisedBezierCurve(BezierCurve):
     def control_points_to_array(self):
         # Only optimize interior control points (keep first and last fixed)
         result = []
+        if self.cp is not None:
+            # Insert the new control point as a Point object for the straight entry position
+            self.control_points.insert(-2, Point(self.cp))
         for i in range(1, len(self.control_points) - 1):
             result.extend([self.control_points[i].x, self.control_points[i].y])
+
+        print(result)
         return np.array(result)
     
     def array_to_control_points(self, flat_array):
-        points = [self.control_points[0]]  # Keep first point
+        points = [self.control_points[0]]
         
         for i in range(0, len(flat_array), 2):
             points.append(Point(flat_array[i], flat_array[i + 1]))
             
-        points.append(self.control_points[-1])  # Keep last point
+        points.append(self.control_points[-1])
+        
         return points
+ 
+    '''Entry penalty function to penalize segment of curve between entry point and last control point if not parallel to x-axis.'''
+    def entry_penalty(self, point, curve_point):
+
+        last_cp = self.control_points[-1]
+        
+        # Check if curve_point is between entry point and last control point
+        if (point.x <= curve_point.x <= last_cp.x) or \
+           (last_cp.x <= curve_point.x <= point.x):
+            # Penalize any vertical deviation from the entry point's y-coordinate
+
+            vertical_deviation = curve_point.y - point.y
+            
+
+            penalty = 1e10 * (vertical_deviation ** 2)
+            return penalty
+        else:
+            return 0
     
     def cost_function(self, params):
         from scipy.optimize import minimize
@@ -197,9 +223,11 @@ class OptimisedBezierCurve(BezierCurve):
             
 
             potential_energy = self.potential_function(sample_point)
+
+            entry_pen = self.entry_penalty(Point(self.cp), sample_point) if self.cp is not None else 0
             
 
-            cost += (kinetic_energy + potential_energy)*dt
+            cost += (kinetic_energy + potential_energy + entry_pen)*dt
             
 
         return cost
@@ -208,11 +236,11 @@ class OptimisedBezierCurve(BezierCurve):
         """Optimize the control points to minimize the cost function"""
         from scipy.optimize import minimize
         
-        # Convert control points to flat array for optimization
+
         initial_params = self.control_points_to_array()
         
         try:
-            # Use Nelder-Mead optimization
+
             result = minimize(
                 self.cost_function,
                 initial_params,
@@ -220,10 +248,11 @@ class OptimisedBezierCurve(BezierCurve):
                 options={'maxiter': 10000}
             )
             
-            # Update control points with optimized ones
+
             if result.success:
                 optimized_points = self.array_to_control_points(result.x)
                 self.control_points = optimized_points
+                print(self.control_points)
             else:
                 print("Optimization failed:", result.message)
                 
@@ -232,12 +261,13 @@ class OptimisedBezierCurve(BezierCurve):
 
 app = Flask(__name__)
 
-def generate_plot(control_points, obstacles, penalty_multiplier=1.0, robot_mass=1.0):
+def generate_plot(control_points, obstacles, penalty_multiplier=100.0, robot_mass=1.0, cp=None):
     curve = OptimisedBezierCurve(
         control_points=control_points,
         penalty_multiplier=penalty_multiplier,
         obstacle_points=obstacles,
-        robot_mass=robot_mass
+        robot_mass=robot_mass,
+        cp=cp,
     )
     
     plt.style.use('dark_background')
@@ -323,13 +353,30 @@ def generate_curve():
         for obs in data['obstacles']:
             obstacles.append([float(obs['x']), float(obs['y'])])
         
-        # Use default parameters
-        penalty_multiplier = 1.0
+        # Parse entry points
+        entry_points = []
+        if 'entryPoints' in data and data['entryPoints']:
+            for point in data['entryPoints']:
+                entry_points.append([float(point['x']), float(point['y'])])
+    
+        
+        # For each entry point, calculate control point with X-axis displacement
+        newcp = None
+        if len(control_points) >= 1 and len(entry_points) > 0:
+            start = control_points[0]
+            for entry in entry_points:
+                newcp = [entry[0], entry[1]] if start[0] < entry[0] else [entry[0], entry[1]]
+    
+
+
+        penalty_multiplier = 1.000
         robot_mass = 1.0
         
 
-        plot_url = generate_plot(control_points, obstacles, penalty_multiplier, robot_mass)
-        
+        plot_url = generate_plot(control_points, obstacles, penalty_multiplier, robot_mass, newcp)
+        for i in range(len(obstacles)):
+            print(obstacles[i])
+
         return jsonify({
             'success': True,
             'plot': plot_url
