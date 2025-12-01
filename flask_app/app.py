@@ -183,19 +183,31 @@ class OptimisedBezierCurve(BezierCurve):
     def entry_penalty(self, point, curve_point):
 
         last_cp = self.control_points[-1]
-        
-        # Check if curve_point is between entry point and last control point
-        if (point.x <= curve_point.x <= last_cp.x) or \
-           (last_cp.x <= curve_point.x <= point.x):
-            # Penalize any vertical deviation from the entry point's y-coordinate
+        if point.y == last_cp.y:
+            # Check if curve_point is between entry point and last control point
+            if (point.x <= curve_point.x <= last_cp.x) or \
+            (last_cp.x <= curve_point.x <= point.x):
+                # Penalize any vertical deviation from the entry point's y-coordinate
 
-            vertical_deviation = curve_point.y - point.y
-            
+                vertical_deviation = curve_point.y - point.y
+                
 
-            penalty = 1e10 * (vertical_deviation ** 2)
-            return penalty
-        else:
-            return 0
+                penalty = 1e10 * (vertical_deviation ** 2)
+                return penalty
+            else:
+                return 0
+        elif point.x == last_cp.x:
+            if (point.y <= curve_point.y <= last_cp.y) or \
+            (last_cp.y <= curve_point.y <= point.y):
+                # Penalize any vertical deviation from the entry point's y-coordinate
+
+                horizontal_deviation = curve_point.x - point.x
+                
+
+                penalty = 1e10 * (horizontal_deviation ** 2)
+                return penalty
+            else:
+                return 0
     
     def cost_function(self, params):
         from scipy.optimize import minimize
