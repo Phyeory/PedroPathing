@@ -212,6 +212,41 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
 
+        .improvement-info {
+            margin-top: 20px;
+            padding: 15px 25px;
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 212, 255, 0.1));
+            border: 2px solid rgba(0, 255, 136, 0.3);
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.1rem;
+            color: #00ff88;
+            box-shadow: 0 5px 20px rgba(0, 255, 136, 0.2);
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        .improvement-info i {
+            font-size: 1.3rem;
+        }
+
+        .improvement-info strong {
+            font-size: 1.3rem;
+            color: #00d4ff;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
         .loading {
             display: none;
             flex-direction: column;
@@ -429,6 +464,10 @@
                 
                 <div class="plot-container" id="plotContainer" style="display: none;">
                     <img id="plotImage" src="" alt="Optimized Bezier Curve">
+                    <div class="improvement-info" id="improvementInfo" style="display: none;">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Improvement: <strong id="improvementPercentage">0%</strong></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -659,6 +698,15 @@
                 
                 if (data.success) {
                     document.getElementById('plotImage').src = 'data:image/png;base64,' + data.plot;
+                    
+                    // Display improvement percentage
+                    if (data.improvement_percentage !== undefined) {
+                        const improvementElement = document.getElementById('improvementPercentage');
+                        const improvementInfo = document.getElementById('improvementInfo');
+                        improvementElement.textContent = data.improvement_percentage.toFixed(2) + '%';
+                        improvementInfo.style.display = 'inline-flex';
+                    }
+                    
                     loading.style.display = 'none';
                     plotContainer.style.display = 'block';
                 } else {

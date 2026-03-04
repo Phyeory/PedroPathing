@@ -243,6 +243,49 @@ class OptimisedBezierCurve(BezierCurve):
             
 
         return cost
+
+    def get_original_cost(self):
+        points = self.original_control_points
+        curve = BezierCurve(points)
+
+        cost = 0
+        N = 10000 
+        
+        for i in range(N):
+            t = i / (N - 1)
+            dt = 1/(N-1)
+            
+
+            d1 = curve.get_derivative(t)
+            d2 = curve.get_second_derivative(t)
+
+            
+
+            kinetic_energy = (d1.dot(d1)**2)/2
+            
+
+            sample_point = curve.get_point(t)
+            
+
+            potential_energy = self.potential_function(sample_point)
+
+            entry_pen = self.entry_penalty(Point(self.cp), sample_point) if self.cp is not None else 0
+            
+
+            cost += (kinetic_energy + potential_energy + entry_pen)*dt
+            
+
+        return cost
+
+    def get_improvement_percentage(self):
+        original_cost = self.get_original_cost()
+        optimized_cost = self.cost_function(self.control_points_to_array())
+        
+        if original_cost == 0:
+            return 0.0
+        
+        improvement = (original_cost - optimized_cost) / original_cost * 100
+        return improvement
     
     def optimize_bezier_curve(self):
         """Optimize the control points to minimize the cost function"""
@@ -281,6 +324,9 @@ def generate_plot(control_points, obstacles, penalty_multiplier=100.0, robot_mas
         robot_mass=robot_mass,
         cp=cp,
     )
+    
+    # Get improvement percentage
+    improvement_percentage = curve.get_improvement_percentage()
     
     plt.style.use('dark_background')
     fig, ax = plt.subplots(figsize=(12, 8))
@@ -344,7 +390,7 @@ def generate_plot(control_points, obstacles, penalty_multiplier=100.0, robot_mas
     plot_url = base64.b64encode(img.getvalue()).decode()
     
     plt.close(fig)
-    return plot_url
+    return plot_url, improvement_percentage
 
 @app.route('/')
 def index():
@@ -385,13 +431,14 @@ def generate_curve():
         robot_mass = 1.0
         
 
-        plot_url = generate_plot(control_points, obstacles, penalty_multiplier, robot_mass, newcp)
+        plot_url, improvement = generate_plot(control_points, obstacles, penalty_multiplier, robot_mass, newcp)
         for i in range(len(obstacles)):
             print(obstacles[i])
 
         return jsonify({
             'success': True,
-            'plot': plot_url
+            'plot': plot_url,
+            'improvement_percentage': improvement
         })
         
     except Exception as e:
